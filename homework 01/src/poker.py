@@ -27,7 +27,7 @@
 # Можно свободно определять свои функции и т.п.
 # -----------------
 
-from itertools import permutations
+from itertools import combinations
 
 
 def hand_rank(hand):
@@ -96,54 +96,29 @@ def two_pair(ranks):
     """Если есть две пары, то возврщает два соответствующих ранга,
     иначе возвращает None"""
     good_ranks = [rank for rank in set(ranks) if ranks.count(rank) == 2]
-    return good_ranks[::-1] if len(good_ranks) == 2 else None
-
-
-def compare_ranks(rank1, rank2):
-    if rank1[0] > rank2[0]:
-        return True
-    elif rank1[0] < rank2[0]:
-        return False
-    else:
-        rank1_info = rank1[1:]
-        rank2_info = rank2[1:]
-        for i in range(0, min(len(rank1_info), len(rank2_info))):
-            if rank1_info[i] > rank2_info[i]:
-                return True
-            elif rank1_info[i] < rank2_info[i]:
-                return False
-    return True
+    return good_ranks if len(good_ranks) == 2 else None
 
 
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
-    result_hand = []
-    result_rank = (0, [])
-    for sub_hand in permutations(hand, 5):
-        if compare_ranks(hand_rank(sub_hand), result_rank):
+    hand_combinations = combinations(hand, 5)
+    result_hand = hand_combinations.__next__()
+    result_rank = hand_rank(result_hand)
+    for sub_hand in hand_combinations:
+        rank = hand_rank(sub_hand)
+        if rank > result_rank:
             result_hand = sub_hand
-            result_rank = hand_rank(sub_hand)
+            result_rank = rank
     return result_hand
 
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
-    black_cards = ["2C", "3C", "4C", "5C", "6C", "7C", "8C", "9C", "TC", "JC", "QC", "KC", "AC",
-                   "2S", "3S", "4S", "5S", "6S", "7S", "8S", "9S", "TS", "JS", "QS", "KS", "AS"]
-    red_cards = ["2D", "3D", "4D", "5D", "6D", "7D", "8D", "9D", "TD", "JD", "QD", "KD", "AD",
-                 "2H", "3H", "4H", "5H", "6H", "7H", "8H", "9H", "TH", "JH", "QH", "KH", "AH"]
-    result_hand = []
-    result_rank = (0, [])
-    if "?B" in hand:
-        black_joker_index = hand.index("?B")
-        for black_card in black_cards:
-            if black_card not in hand:
-                hand[black_joker_index] = black_card
-                for sub_hand in permutations(hand, 5):
-                    if compare_ranks(hand_rank(sub_hand), result_rank):
-                        result_hand = sub_hand
-                        result_rank = hand_rank(sub_hand)
-    return result_hand
+    # black_cards = ["2C", "3C", "4C", "5C", "6C", "7C", "8C", "9C", "TC", "JC", "QC", "KC", "AC",
+    #                "2S", "3S", "4S", "5S", "6S", "7S", "8S", "9S", "TS", "JS", "QS", "KS", "AS"]
+    # red_cards = ["2D", "3D", "4D", "5D", "6D", "7D", "8D", "9D", "TD", "JD", "QD", "KD", "AD",
+    #              "2H", "3H", "4H", "5H", "6H", "7H", "8H", "9H", "TH", "JH", "QH", "KH", "AH"]
+    return
 
 
 def test_best_hand():
@@ -170,6 +145,4 @@ def test_best_wild_hand():
 
 if __name__ == '__main__':
     test_best_hand()
-#    print(best_wild_hand("6C 7C 8C 9C TC 5C ?B".split()))
-
-    test_best_wild_hand()
+    # test_best_wild_hand()
