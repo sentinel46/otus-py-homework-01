@@ -5,47 +5,48 @@ from functools import update_wrapper
 
 
 def disable():
-    '''
+    """
     Disable a decorator by re-assigning the decorator's name
     to this function. For example, to turn off memoization:
 
     >>> memo = disable
 
-    '''
+    """
     return
 
 
 def decorator():
-    '''
+    """
     Decorate a decorator so that it inherits the docstrings
     and stuff from the function it's decorating.
-    '''
+    """
     return
 
 
 def countcalls():
-    '''Decorator that counts calls made to the function decorated.'''
+    """Decorator that counts calls made to the function decorated."""
     return
 
 
 def memo():
-    '''
+    """
     Memoize a function so that it caches all return values for
     faster future lookups.
-    '''
+    """
     return
 
 
 def n_ary():
-    '''
+    """
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
-    '''
+    """
+
     return
 
 
 def trace():
-    '''Trace calls made to function decorated.
+    """Trace calls made to function decorated.
 
     @trace("____")
     def fib(n):
@@ -63,7 +64,7 @@ def trace():
     ____ <-- fib(1) == 1
      <-- fib(3) == 3
 
-    '''
+    """
     return
 
 
@@ -71,7 +72,7 @@ def trace():
 @countcalls
 @n_ary
 def foo(a, b):
-    return a + b
+   return a + b
 
 
 @countcalls
@@ -90,19 +91,19 @@ def fib(n):
 
 
 def main():
-    print foo(4, 3)
-    print foo(4, 3, 2)
-    print foo(4, 3)
-    print "foo was called", foo.calls, "times"
+    print(foo(4, 3))
+    print(foo(4, 3, 2))
+    print(foo(4, 3))
+    print("foo was called", foo.calls, "times")
 
-    print bar(4, 3)
-    print bar(4, 3, 2)
-    print bar(4, 3, 2, 1)
-    print "bar was called", bar.calls, "times"
+    print(bar(4, 3))
+    print(bar(4, 3, 2))
+    print(bar(4, 3, 2, 1))
+    print("bar was called", bar.calls, "times")
 
-    print fib.__doc__
+    print(fib.__doc__)
     fib(3)
-    print fib.calls, 'calls made'
+    print(fib.calls, 'calls made')
 
 
 if __name__ == '__main__':
