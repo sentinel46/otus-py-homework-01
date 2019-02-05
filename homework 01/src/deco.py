@@ -4,7 +4,7 @@
 from functools import update_wrapper
 
 
-def disable():
+def disable(func):
     """
     Disable a decorator by re-assigning the decorator's name
     to this function. For example, to turn off memoization:
@@ -12,40 +12,56 @@ def disable():
     >>> memo = disable
 
     """
-    return
+    return func
 
 
-def decorator():
+def decorator(dec):
     """
     Decorate a decorator so that it inherits the docstrings
     and stuff from the function it's decorating.
     """
-    return
+    def wrapper(func):
+        return update_wrapper(dec(func), func)
+    return wrapper
 
 
-def countcalls():
+@decorator
+def countcalls(func):
     """Decorator that counts calls made to the function decorated."""
-    return
+    def wrapper(*args):
+        wrapper.calls = getattr(wrapper, 'calls', 0) + 1
+        return func(*args)
+    return wrapper
 
 
-def memo():
+@decorator
+def memo(func):
     """
     Memoize a function so that it caches all return values for
     faster future lookups.
     """
-    return
+    def wrapper(*args):
+        if not getattr(wrapper, 'cache', None):
+            wrapper.cache = {}
+        if args not in wrapper.cache:
+            wrapper.cache[args] = func(*args)
+            update_wrapper(wrapper, func)
+        return wrapper.cache[args]
+    return wrapper
 
 
-def n_ary():
+@decorator
+def n_ary(func):
     """
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
     """
+    def wrapper(x, *args):
+        return x if not args else func(x, wrapper(*args))
+    return wrapper
 
-    return
 
-
-def trace():
+def trace(annotation):
     """Trace calls made to function decorated.
 
     @trace("____")
@@ -65,14 +81,36 @@ def trace():
      <-- fib(3) == 3
 
     """
-    return
+
+    header = ">>>"
+
+    @decorator
+    def dec(func):
+        def wrapper(*args):
+            update_wrapper(wrapper, func)
+            func_info = func.__name__ + "(" + ".".join(map(str, args)) + ")"
+
+            if wrapper.level == 0:
+                print("{} {}".format(header, func_info))
+            print("{} --> {}".format(annotation * wrapper.level, func_info))
+            wrapper.level += 1
+
+            result = func(*args)
+
+            wrapper.level -= 1
+            print("{} <-- {} == {}".format(annotation * wrapper.level, func_info, result))
+            return result
+        update_wrapper(dec, wrapper)
+        wrapper.level = 0
+        return wrapper
+    return dec
 
 
 @memo
 @countcalls
 @n_ary
 def foo(a, b):
-   return a + b
+    return a + b
 
 
 @countcalls
@@ -102,7 +140,7 @@ def main():
     print("bar was called", bar.calls, "times")
 
     print(fib.__doc__)
-    fib(3)
+    print(fib(3))
     print(fib.calls, 'calls made')
 
 
