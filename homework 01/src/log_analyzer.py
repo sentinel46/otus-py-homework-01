@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import glob
+import gzip
+import json
+import logging
+import optparse
 import os
 import re
-import optparse
-import json
-import gzip
 import statistics
 
 # log_format ui_short '$remote_addr  $remote_user $http_x_real_ip [$time_local] "$request" '
@@ -17,15 +18,21 @@ import statistics
 config = {
     "REPORT_SIZE": 1000,
     "REPORT_DIR": "./reports",
-    "LOG_DIR": "./log"
+    "LOG_DIR": "./log",
+    "ERROR_RATE": 0.1,
+    "LOG_NAME": "log_analyzer.log"
 }
 
 
 def update_config(config_file_name, config_):
     """Update default config with data from file in json format"""
 
-    with open(config_file_name) as config_file:
-        new_config = json.load(config_file)
+    try:
+        with open(config_file_name) as config_file:
+            new_config = json.load(config_file)
+    except (IOError, json.JSONDecodeError, TypeError):
+        raise
+
     config_.update(new_config)
     return config_
 
@@ -41,6 +48,9 @@ def find_last_log_file(pattern, log_dir="."):
         match = re.match(pattern, name)
         if match:
             log_files.update({match.group("date"): name})
+    if not log_files:
+        return None
+
     last_date = sorted(log_files.keys(), reverse=True)[0]
     return log_files[last_date], last_date
 
@@ -53,7 +63,7 @@ def opener(file_name):
     return open
 
 
-def parse_log_file(pattern, file_name):
+def parse_log_file(pattern, file_name, error_rate):
     """
     Parse log file with given log pattern,
     return dictionary with urls and request times
@@ -68,11 +78,13 @@ def parse_log_file(pattern, file_name):
     url_stats = {}
 
     print("{} log parsing started".format(file_name))
-    with open_log(file_name) as log_file:
+    with open_log(file_name, "rb") as log_file:
         for line in log_file:
             total += 1
             if total % 10000 == 0:
                 print("{} rows processed, {} are succeed".format(total, succeed))
+
+            line = line.decode("utf-8")
 
             match = re.match(pattern, line)
             if match:
@@ -85,6 +97,11 @@ def parse_log_file(pattern, file_name):
                 url_stats[url].append(time)
 
                 succeed += 1
+            else:
+                logging.info("Cannot parse line: {}".format(line))
+
+    if succeed / total < 1 - error_rate:
+        return
 
     info = {"total": total, "succeed": succeed, "total_time": total_time}
 
@@ -102,7 +119,7 @@ def get_stats(url, request_times, succeed, total_time):
             "time_sum": round(time_sum, 3),
             "time_perc": round(100 * time_sum / total_time, 3),
             "time_avg": round(time_sum / count, 3),
-            "time_max": round(sorted(request_times)[0], 3),
+            "time_max": round(max(request_times), 3),
             "time_med": round(statistics.median(request_times), 3)}
 
 
@@ -141,12 +158,22 @@ def main():
     if options.new_config:
         logger_config = update_config(options.new_config, logger_config)
 
+    logging.basicConfig(filename=logger_config["LOG_NAME"] if logger_config["LOG_NAME"] else None,
+                        format="[%(asctime)s] %(levelname).1s %(message)s",
+                        datefmt="%Y.%m.%d %H:%M:%S",
+                        level=logging.INFO)
+
     nginx_file_name_pattern = re.compile(".*nginx-access-ui\.log-(?P<date>\d{8})(\.gz)?")
-    log_file_name, timestamp = find_last_log_file(nginx_file_name_pattern, logger_config["LOG_DIR"])
+    result = find_last_log_file(nginx_file_name_pattern, logger_config["LOG_DIR"])
+    if not result:
+        logging.info("Log file not found. Nothing to parse. Exit.")
+        return
+    log_file_name, timestamp = result
 
     report_file_name = "report-{}.{}.{}.html".format(timestamp[:4], timestamp[4:6], timestamp[6:8])
     report_file_name = os.path.join(logger_config["REPORT_DIR"], report_file_name)
     if report_file_name in glob.glob(os.path.join(logger_config["REPORT_DIR"], "*")):
+        logging.info("Log report already exists. Nothing to do. Exit.")
         return
 
     nginx_log_pattern = re.compile(
@@ -155,10 +182,17 @@ def main():
         "\"(?P<http_referer>.+)\"\s+\"(?P<http_user_agent>.+)\"\s+\"(?P<http_x_forwarded_for>.+)\"\s+" \
         "\"(?P<http_X_REQUEST_ID>.+)\"\s+\"(?P<http_X_RB_USER>.+)\"\s+(?P<request_time>.+)")
 
-    url_stats, info = parse_log_file(nginx_log_pattern, log_file_name)
+    result = parse_log_file(nginx_log_pattern, log_file_name, logger_config["ERROR_RATE"])
+    if not result:
+        logging.error("Too many log file parsing errors. Abort.")
+        return
+    url_stats, info = result
     report = prepare_report(url_stats, info, logger_config["REPORT_SIZE"])
     write_report_to_html(report, "./report.html", report_file_name)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.error("Unhandled error:\n{}".format(e))
