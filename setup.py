@@ -30,7 +30,7 @@ setup(
     # long_description="",
     author="Aleksei Dovgal",
     author_email="altdaedroth@gmail.com",
-    # url="",
+    url="https://github.com/sentinel46/otus-py-homework-01",
     packages=find_packages("log_analyzer"),
     package_dir={"": "log_analyzer"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],

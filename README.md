@@ -1,1 +1,1 @@
-# python-course
+# otus-py homework 01
