@@ -9,6 +9,7 @@ import optparse
 import os
 import re
 import statistics
+import sys
 
 # log_format ui_short '$remote_addr  $remote_user $http_x_real_ip [$time_local] "$request" '
 #                     '$status $body_bytes_sent "$http_referer" '
@@ -27,11 +28,8 @@ config = {
 def update_config(config_file_name, config_):
     """Update default config with data from file in json format"""
 
-    try:
-        with open(config_file_name) as config_file:
-            new_config = json.load(config_file)
-    except (IOError, json.JSONDecodeError, TypeError):
-        raise
+    with open(config_file_name) as config_file:
+        new_config = json.load(config_file)
 
     config_.update(new_config)
     return config_
@@ -55,14 +53,6 @@ def find_last_log_file(pattern, log_dir="."):
     return log_files[last_date], last_date
 
 
-def opener(file_name):
-    """Choose function to open file"""
-
-    if file_name.endswith(".gz"):
-        return gzip.open
-    return open
-
-
 def parse_log_file(pattern, file_name, error_rate):
     """
     Parse log file with given log pattern,
@@ -70,7 +60,7 @@ def parse_log_file(pattern, file_name, error_rate):
     and dictionary with total log file statistics
     """
 
-    open_log = opener(file_name)
+    open_log = gzip.open if file_name.endswith(".gz") else open
 
     total = 0
     succeed = 0
@@ -156,43 +146,46 @@ def main():
 
     logger_config = config
     if options.new_config:
-        logger_config = update_config(options.new_config, logger_config)
+        try:
+            logger_config = update_config(options.new_config, logger_config)
+        except (IOError, json.JSONDecodeError, TypeError) as e:
+            sys.exit("Error while trying to read configuration file: {}".format(e))
 
     logging.basicConfig(filename=logger_config["LOG_NAME"] if logger_config["LOG_NAME"] else None,
                         format="[%(asctime)s] %(levelname).1s %(message)s",
                         datefmt="%Y.%m.%d %H:%M:%S",
                         level=logging.INFO)
 
-    nginx_file_name_pattern = re.compile(".*nginx-access-ui\.log-(?P<date>\d{8})(\.gz)?")
-    result = find_last_log_file(nginx_file_name_pattern, logger_config["LOG_DIR"])
-    if not result:
-        logging.info("Log file not found. Nothing to parse. Exit.")
-        return
-    log_file_name, timestamp = result
+    try:
+        nginx_file_name_pattern = re.compile(".*nginx-access-ui\.log-(?P<date>\d{8})(\.gz)?$")
+        result = find_last_log_file(nginx_file_name_pattern, logger_config["LOG_DIR"])
+        if not result:
+            logging.info("Log file not found. Nothing to parse. Exit.")
+            sys.exit()
+        log_file_name, timestamp = result
 
-    report_file_name = "report-{}.{}.{}.html".format(timestamp[:4], timestamp[4:6], timestamp[6:8])
-    report_file_name = os.path.join(logger_config["REPORT_DIR"], report_file_name)
-    if report_file_name in glob.glob(os.path.join(logger_config["REPORT_DIR"], "*")):
-        logging.info("Log report already exists. Nothing to do. Exit.")
-        return
+        report_file_name = "report-{}.{}.{}.html".format(timestamp[:4], timestamp[4:6], timestamp[6:8])
+        report_file_name = os.path.join(logger_config["REPORT_DIR"], report_file_name)
+        if report_file_name in glob.glob(os.path.join(logger_config["REPORT_DIR"], "*")):
+            logging.info("Log report already exists. Nothing to do. Exit.")
+            sys.exit()
 
-    nginx_log_pattern = re.compile(
-        "(?P<remote_addr>.+)\s+(?P<remote_user>.+)\s+(?P<http_x_real_ip>.+)\s+\[(?P<time_local>.+)\]\s+" \
-        "\"[A-Z]{1,} (?P<request>.+) .*\"\s+(?P<status>.+)\s+(?P<body_bytes_send>.+)\s+" \
-        "\"(?P<http_referer>.+)\"\s+\"(?P<http_user_agent>.+)\"\s+\"(?P<http_x_forwarded_for>.+)\"\s+" \
-        "\"(?P<http_X_REQUEST_ID>.+)\"\s+\"(?P<http_X_RB_USER>.+)\"\s+(?P<request_time>.+)")
+        nginx_log_pattern = re.compile(
+            "(?P<remote_addr>.+)\s+(?P<remote_user>.+)\s+(?P<http_x_real_ip>.+)\s+\[(?P<time_local>.+)\]\s+" \
+            "\"[A-Z]{1,} (?P<request>.+) .*\"\s+(?P<status>.+)\s+(?P<body_bytes_send>.+)\s+" \
+            "\"(?P<http_referer>.+)\"\s+\"(?P<http_user_agent>.+)\"\s+\"(?P<http_x_forwarded_for>.+)\"\s+" \
+            "\"(?P<http_X_REQUEST_ID>.+)\"\s+\"(?P<http_X_RB_USER>.+)\"\s+(?P<request_time>.+)")
 
-    result = parse_log_file(nginx_log_pattern, log_file_name, logger_config["ERROR_RATE"])
-    if not result:
-        logging.error("Too many log file parsing errors. Abort.")
-        return
-    url_stats, info = result
-    report = prepare_report(url_stats, info, logger_config["REPORT_SIZE"])
-    write_report_to_html(report, "./report.html", report_file_name)
+        result = parse_log_file(nginx_log_pattern, log_file_name, logger_config["ERROR_RATE"])
+        if not result:
+            logging.error("Too many log file parsing errors. Abort.")
+            sys.exit()
+        url_stats, info = result
+        report = prepare_report(url_stats, info, logger_config["REPORT_SIZE"])
+        write_report_to_html(report, "./report.html", report_file_name)
+    except Exception as e:
+        logging.exception("Unhandled error:\n{}".format(e))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logging.error("Unhandled error:\n{}".format(e))
+    main()
