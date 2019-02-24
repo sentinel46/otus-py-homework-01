@@ -7,42 +7,44 @@ import log_analyzer
 import re
 import unittest
 
+from datetime import date
+
 
 class TestLogAnalyzer(unittest.TestCase):
 
     def test_update_config(self):
-        file_name = "./config.cfg"
+        file_name = "test_config.txt"
         file_config = {"param1": "value1", "param2": "2"}
         with open(file_name, "w") as config_file:
             json.dump(file_config, config_file)
 
         config = {"param1": "test", "param2": "test"}
-        config = log_analyzer.update_config(file_name, config)
+        log_analyzer.update_config(file_name, config)
         self.assertEqual(file_config, config)
-        os.remove("./config.cfg")
+        os.remove(file_name)
 
     def test_find_last_log_file(self):
         # last file is plane
-        file_names = ["./nginx-access-ui.log-20101010",    "./nginx-access-ui.log-20101015",
-                      "./nginx-access-ui.log-20101016",    "./nginx-access-ui.log-20101009.gz",
-                      "./nginx-access-ui.log-20101011.gz", "./nginx-access-ui.log-20101012.gz",
-                      "./nginx-access-ui.log-20101018.7z", "./nginx-access-ui.log-20101016.zip",
-                      "./nginx-access-ui.log-20101017.rar"]
+        file_names = ["nginx-access-ui.log-20101010",    "nginx-access-ui.log-20101015",
+                      "nginx-access-ui.log-20101016",    "nginx-access-ui.log-20101009.gz",
+                      "nginx-access-ui.log-20101011.gz", "nginx-access-ui.log-20101012.gz",
+                      "nginx-access-ui.log-20101018.7z", "nginx-access-ui.log-20101016.zip",
+                      "nginx-access-ui.log-20101017.rar"]
         for file_name in file_names:
             open(file_name, "w").close()
 
         pattern = re.compile(".*nginx-access-ui\.log-(?P<date>\d{8})(\.gz)?$")
         log_file_name, timestamp = log_analyzer.find_last_log_file(pattern)
-        self.assertEqual(log_file_name, "./nginx-access-ui.log-20101016")
-        self.assertEqual(timestamp, "20101016")
+        self.assertEqual(log_file_name, "nginx-access-ui.log-20101016")
+        self.assertEqual(timestamp, date(2010, 10, 16))
 
         # last file is gz
-        gz_file = "./nginx-access-ui.log-20101017.gz"
+        gz_file = "nginx-access-ui.log-20101017.gz"
         open(gz_file, "w").close()
 
         log_file_name, timestamp = log_analyzer.find_last_log_file(pattern)
         self.assertEqual(log_file_name, gz_file)
-        self.assertEqual(timestamp, "20101017")
+        self.assertEqual(timestamp, date(2010, 10, 17))
 
         # without any files
         for file_name in file_names:
@@ -79,8 +81,9 @@ class TestLogAnalyzer(unittest.TestCase):
         self.assertEqual(info["total_time"], 2.565)
 
         # out of ERROR_RATE
-        with open(file_name, "w+") as log:
-            log.write("""1.202.56.176 -  - [29/Jun/2017:09:48:16 +0300] "0" 400 166 "-" "-" "-" "-" "-" 0.005""")
+        with open(file_name, "w") as log:
+            log.write("""1.202.56.176 -  - [29/Jun/2017:09:48:16 +0300] "0" 400 166 "-" "-" "-" "-" "-" 0.005
+1.202.56.176 -  - [29/Jun/2017:09:48:16 +0300] "0" 400 166 "-" "-" "-" "-" "-" 0.005""")
 
         result = log_analyzer.parse_log_file(pattern, file_name, 0.1)
         self.assertIsNone(result)
