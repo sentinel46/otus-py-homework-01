@@ -22,15 +22,19 @@ def decorator(dec):
     """
     def wrapper(func):
         return update_wrapper(dec(func), func)
-    return wrapper
+
+    return update_wrapper(wrapper, dec)
 
 
 @decorator
 def countcalls(func):
     """Decorator that counts calls made to the function decorated."""
     def wrapper(*args):
-        wrapper.calls = getattr(wrapper, 'calls', 0) + 1
+        wrapper.calls += 1
         return func(*args)
+
+    wrapper.calls = 0
+
     return wrapper
 
 
@@ -41,12 +45,13 @@ def memo(func):
     faster future lookups.
     """
     def wrapper(*args):
-        if not getattr(wrapper, 'cache', None):
-            wrapper.cache = {}
+        update_wrapper(wrapper, func)
         if args not in wrapper.cache:
             wrapper.cache[args] = func(*args)
-            update_wrapper(wrapper, func)
         return wrapper.cache[args]
+
+    wrapper.cache = {}
+
     return wrapper
 
 
@@ -129,6 +134,13 @@ def fib(n):
 
 
 def main():
+    print("disable.__doc__ =", disable.__doc__)
+    print("decorator.__doc__=", decorator.__doc__)
+    print("countcalls.__doc__ =", countcalls.__doc__)
+    print("memo.__doc__ =", memo.__doc__)
+    print("n_ary.__doc__ =", n_ary.__doc__)
+    print("trace.__doc__ =", trace.__doc__)
+
     print(foo(4, 3))
     print(foo(4, 3, 2))
     print(foo(4, 3))
@@ -140,7 +152,7 @@ def main():
     print("bar was called", bar.calls, "times")
 
     print(fib.__doc__)
-    print(fib(3))
+    fib(3)
     print(fib.calls, 'calls made')
 
 
