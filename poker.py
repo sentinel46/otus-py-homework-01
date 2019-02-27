@@ -76,14 +76,13 @@ def card_ranks(hand):
 
 def flush(hand):
     """Возвращает True, если все карты одной масти"""
-    first_suit = hand[0][1]
-    return all(first_suit == card[1] for card in hand[1:])
+    return len({suit for rank, suit in hand}) == 1
 
 
 def straight(ranks):
     """Возвращает True, если отсортированные ранги формируют последовательность 5ти,
     где у 5ти карт ранги идут по порядку (стрит)"""
-    return all(ranks[i+1] == ranks[i] - 1 for i in range(0, len(ranks)-1))
+    return max(ranks) - min(ranks) == 4 and len(set(ranks)) == 5
 
 
 def kind(n, ranks):
@@ -95,21 +94,13 @@ def kind(n, ranks):
 def two_pair(ranks):
     """Если есть две пары, то возврщает два соответствующих ранга,
     иначе возвращает None"""
-    good_ranks = [rank for rank in set(ranks) if ranks.count(rank) == 2]
+    good_ranks = [ranks[i] for i in range(len(ranks)) if ranks[i-1] == ranks[i]]
     return good_ranks if len(good_ranks) == 2 else None
 
 
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
-    hand_combinations = combinations(hand, 5)
-    result_hand = hand_combinations.__next__()
-    result_rank = hand_rank(result_hand)
-    for sub_hand in hand_combinations:
-        rank = hand_rank(sub_hand)
-        if rank > result_rank:
-            result_hand = sub_hand
-            result_rank = rank
-    return result_hand
+    return max((comb for comb in combinations(hand, 5)), key=hand_rank)
 
 
 def best_wild_hand(hand):
@@ -129,6 +120,8 @@ def test_best_hand():
             == ['8C', '8S', 'TC', 'TD', 'TH'])
     assert (sorted(best_hand("JD TC TH 7C 7D 7S 7H".split()))
             == ['7C', '7D', '7H', '7S', 'JD'])
+    assert (sorted(best_hand('TD TC JH 7C 7D 8C 8S'.split()))
+            == ['8C', '8S', 'JH', 'TC', 'TD'])
     print('OK')
 
 
