@@ -92,7 +92,6 @@ def trace(annotation):
     @decorator
     def dec(func):
         def wrapper(*args):
-            update_wrapper(wrapper, func)
             func_info = func.__name__ + "(" + ".".join(map(str, args)) + ")"
 
             if wrapper.level == 0:
@@ -105,7 +104,6 @@ def trace(annotation):
             wrapper.level -= 1
             print("{} <-- {} == {}".format(annotation * wrapper.level, func_info, result))
             return result
-        update_wrapper(dec, wrapper)
         wrapper.level = 0
         return wrapper
     return dec
