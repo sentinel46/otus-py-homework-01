@@ -56,7 +56,7 @@ def find_last_log_file(pattern, log_dir="."):
     return None if not log_file_name else (log_file_name, last_date)
 
 
-def parse_log_file(pattern, file_name, error_rate):
+def parse_log_file(pattern, file_name):
     """
     Parse log file with given log pattern,
     return dictionary with urls and request times
@@ -94,12 +94,9 @@ def parse_log_file(pattern, file_name, error_rate):
                 logging.info("Cannot parse line: {}".format(line))
     print("{} log parsing finished".format(file_name))
 
-    if succeed / total < 1 - error_rate:
-        return None
-
     info = {"total": total, "succeed": succeed, "total_time": total_time}
 
-    return url_stats, info
+    return info, url_stats
 
 
 def get_stats(url, request_times, succeed, total_time):
@@ -164,12 +161,13 @@ def main(config_):
             "\"(?P<http_referer>.+)\"\s+\"(?P<http_user_agent>.+)\"\s+\"(?P<http_x_forwarded_for>.+)\"\s+" \
             "\"(?P<http_X_REQUEST_ID>.+)\"\s+\"(?P<http_X_RB_USER>.+)\"\s+(?P<request_time>.+)")
 
-        result = parse_log_file(nginx_log_pattern, os.path.join(config_["LOG_DIR"], log_file_name), config_["ERROR_RATE"])
-        if not result:
-            logging.error("More than {}% errors occurred during parsing log file. Abort."
-                          .format(config_["ERROR_RATE"] * 100))
+        info, url_stats = parse_log_file(nginx_log_pattern, os.path.join(config_["LOG_DIR"], log_file_name))
+        errors = 1 - info["succeed"] / info["total"]
+        if errors > config_["ERROR_RATE"]:
+            logging.error("{}% errors occurred during parsing log file. Abort."
+                          .format(errors * 100))
             sys.exit()
-        url_stats, info = result
+
         report = prepare_report(url_stats, info, config_["REPORT_SIZE"])
         write_report_to_html(report, "./report.html", report_file_name)
         print("All operations completed. Report saved into {}".format(report_file_name))
