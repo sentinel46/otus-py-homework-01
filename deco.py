@@ -45,7 +45,8 @@ def memo(func):
     faster future lookups.
     """
     def wrapper(*args):
-        update_wrapper(wrapper, func)
+        if hasattr(func, "calls"):
+            wrapper.calls = func.calls
         if args not in wrapper.cache:
             wrapper.cache[args] = func(*args)
         return wrapper.cache[args]
