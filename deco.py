@@ -45,10 +45,11 @@ def memo(func):
     faster future lookups.
     """
     def wrapper(*args, **kwargs):
-        if args not in wrapper.cache:
-            wrapper.cache[args] = func(*args, **kwargs)
+        key = str(args) + str(kwargs)
+        if key not in wrapper.cache:
+            wrapper.cache[key] = func(*args, **kwargs)
         update_wrapper(wrapper, func)
-        return wrapper.cache[args]
+        return wrapper.cache[key]
 
     wrapper.cache = {}
 
