@@ -29,9 +29,9 @@ def decorator(dec):
 @decorator
 def countcalls(func):
     """Decorator that counts calls made to the function decorated."""
-    def wrapper(*args):
+    def wrapper(*args, **kwargs):
         wrapper.calls += 1
-        return func(*args)
+        return func(*args, **kwargs)
 
     wrapper.calls = 0
 
@@ -44,11 +44,10 @@ def memo(func):
     Memoize a function so that it caches all return values for
     faster future lookups.
     """
-    def wrapper(*args):
-        if hasattr(func, "calls"):
-            wrapper.calls = func.calls
+    def wrapper(*args, **kwargs):
         if args not in wrapper.cache:
-            wrapper.cache[args] = func(*args)
+            wrapper.cache[args] = func(*args, **kwargs)
+        update_wrapper(wrapper, func)
         return wrapper.cache[args]
 
     wrapper.cache = {}
@@ -62,8 +61,8 @@ def n_ary(func):
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
     """
-    def wrapper(x, *args):
-        return x if not args else func(x, wrapper(*args))
+    def wrapper(x, *args, **kwargs):
+        return x if not args else func(x, wrapper(*args, **kwargs))
     return wrapper
 
 
@@ -92,7 +91,7 @@ def trace(annotation):
 
     @decorator
     def dec(func):
-        def wrapper(*args):
+        def wrapper(*args, **kwargs):
             func_info = func.__name__ + "(" + ".".join(map(str, args)) + ")"
 
             if wrapper.level == 0:
@@ -100,7 +99,7 @@ def trace(annotation):
             print("{} --> {}".format(annotation * wrapper.level, func_info))
             wrapper.level += 1
 
-            result = func(*args)
+            result = func(*args, **kwargs)
 
             wrapper.level -= 1
             print("{} <-- {} == {}".format(annotation * wrapper.level, func_info, result))
